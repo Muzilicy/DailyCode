@@ -12,6 +12,12 @@ using ConsoleApp.Models;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using System.Net;
+using System.Data;
+using System.Xml;
+using System.Collections;
+using System.Web;
+using RestSharp;
+using ConsoleApp.Plugins;
 
 namespace ConsoleApp
 {
@@ -132,6 +138,7 @@ namespace ConsoleApp
     {
         static void Main(string[] args)
         {
+            #region history
             //string[] jsonArray = new string[]
             //{
             //    "科室信息",
@@ -141,17 +148,85 @@ namespace ConsoleApp
             //};
             //string str = "1,262.00";
 
-            DateTime bjrq = Convert.ToDateTime("2022-7-28 19:40");
-            DateTime startX = Convert.ToDateTime(DateTime.Now.AddMinutes(11).ToString("yyyy-MM-dd"));
-            DateTime endX = Convert.ToDateTime(DateTime.Now.ToString("yyyy-MM-dd"));
-            TimeSpan span = startX.Subtract(endX);
-            int dayDiff = span.Days;//相差天数
+            //DateTime bjrq = Convert.ToDateTime("2022-7-28 19:40");
+            //DateTime startX = Convert.ToDateTime(DateTime.Now.AddMinutes(11).ToString("yyyy-MM-dd"));
+            //DateTime endX = Convert.ToDateTime(DateTime.Now.ToString("yyyy-MM-dd"));
+            //TimeSpan span = startX.Subtract(endX);
+            //int dayDiff = span.Days;//相差天数
 
-            List<string> keQxList = new List<string> { "1", "2", "3" };
+            //List<string> keQxList = new List<string> { "1", "2", "3" };
 
-            List<string> bukeQxList = new List<string> { "11", "12", "13" }.Except(keQxList).ToList();
+            //List<string> bukeQxList = new List<string> { "11", "12", "13" }.Except(keQxList).ToList();
 
-            Console.WriteLine($"{dayDiff}");
+            //Console.WriteLine($"{dayDiff}"); 
+            #endregion
+
+            #region xml格式
+            DataSet ds = new DataSet();
+            XmlNode xmlNode1 = null;
+            var xd = new XmlDataDocument();
+            StringBuilder sb;
+            Hashtable ht = new Hashtable();
+            //ht.Add("theIpAddress", "115.195.145.149");
+            //xmlNode1 = Plugins.WebServiceCaller.QuerySoapWebService("http://www.webxml.com.cn/WebServices/IpAddressSearchWebService.asmx", "getCountryCityByIp", ht);
+
+            //ht.Add("theIpAddress", "115.195.145.149");
+            //xmlNode1 = Plugins.WebServiceCaller.QueryPostFormUrlWebService("http://www.webxml.com.cn/WebServices/IpAddressSearchWebService.asmx", "getCountryCityByIp", ht);
+            ht.Add("daoQiBZ",1);
+            ht.Add("yiLiaoJG", "800984424215744512");
+            ht.Add("zhuangTai", null);
+
+            string str = WebServiceCaller.QueryPostJsonWebService("http://localhost:20000/mediinfo-hrp-renlizy-renyuangl/api/v1/ShiXiDJ", "export", ht);
+
+            Console.WriteLine(str);
+
+            //ht.Add("theCityName", "九江");
+            //string url = "http://www.webxml.com.cn/WebServices/WeatherWebService.asmx";
+            //string method = "getWeatherbyCityName";
+            //xmlNode1 = Plugins.WebServiceCaller.QuerySoapWebService(url, method, ht);
+            if (xmlNode1 == null)
+            {
+                return;
+            }
+            string xmlstr = HttpUtility.HtmlDecode(xmlNode1.OuterXml);
+            sb = new StringBuilder(xmlstr);
+            if (sb.ToString().Equals(""))
+            {
+                return;
+            }
+            xd.LoadXml(sb.ToString());
+            ds.ReadXml(new XmlNodeReader(xd));
+            //ds可以返回出结果集
+
+            foreach (DataRow row in ds.Tables[0].Rows)
+            {
+                Console.WriteLine(row[0]);
+            }
+            #endregion
+
+            #region 可用版本
+            //DataSet ds = new DataSet();
+            //XmlNode xmlNode1;
+            //XmlDataDocument xd = new XmlDataDocument();
+            //StringBuilder sb;
+            //Hashtable ht = new Hashtable();
+            //ht.Add("theIpAddress", "115.195.145.149");
+            //xmlNode1 = Plugins.WebServiceCaller.QueryPostWebService("http://www.webxml.com.cn/WebServices/IpAddressSearchWebService.asmx", "getCountryCityByIp", ht);
+            //if (xmlNode1 == null)
+            //{
+            //    return;
+            //}
+            //string xmlstr = HttpUtility.HtmlDecode(xmlNode1.OuterXml);
+            //sb = new StringBuilder(xmlstr);
+            //if (sb.ToString().Equals(""))
+            //{
+            //    return;
+            //}
+            //xd.LoadXml(sb.ToString());
+            //ds.ReadXml(new XmlNodeReader(xd)); 
+            #endregion
+
+            Console.Read();
         }
 
         private static Person person = new Person
