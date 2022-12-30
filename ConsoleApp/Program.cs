@@ -202,6 +202,7 @@ namespace ConsoleApp
     {
         private static string GetGangWeiLBName(string code)
         {
+            if (string.IsNullOrEmpty(code)) return string.Empty;
             Dictionary<string, object> dic = new Dictionary<string, object>()
             {
                 {"A1","医生"},
