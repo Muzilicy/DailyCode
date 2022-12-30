@@ -1,22 +1,35 @@
-﻿using ConsoleApp.Models;
+﻿using ConsoleApp.Helper;
+using ConsoleApp.Models;
+using RestSharp.Serializers.Xml;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Xml;
+using System.Xml.Linq;
+using System.Xml.Serialization;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
 namespace ConsoleApp
 {
     #region class
+    public class PropertyInformation
+    {
+        public string Name { get; set; }
+        public object Value { get; set; }
+    }
+
     public class ResponseModel
     {
         public ResponseTest Response { get; set; }
@@ -31,7 +44,7 @@ namespace ConsoleApp
     public class HeadTest
     {
         public ReturnTest Return { get; set; }
-        public string Test { get; set; }
+        public DateTime Test { get; set; }
     }
 
     public class BodyTest
@@ -273,12 +286,8 @@ namespace ConsoleApp
             }
             return qianZhui + (number + step).ToString().PadLeft(count, '0');
         }
+        static string path = "./Xml/response.xml";
 
-        static bool IsBaseType(Type type)
-        {
-            List<Type> list = new List<Type> { typeof(DateTime?), typeof(string), typeof(int) };
-            return list.Contains(type);
-        }
         static void Main(string[] args)
         {
             #region linq
@@ -317,15 +326,33 @@ namespace ConsoleApp
             //} 
             #endregion
 
-            XmlDocument xmlDoc = new XmlDocument();
-            //创建类型声明的节点
-            XmlNode noticeNode = xmlDoc.CreateXmlDeclaration("1.0", "utf-8", string.Empty);
-            xmlDoc.AppendChild(noticeNode);
-            ////创建根结点
-            //XmlNode root = xmlDoc.CreateElement("root");
-            //xmlDoc.AppendChild(root);
+            #region 生成xml
 
-            var response = new ResponseModel
+            GerenateXml();
+
+            #endregion
+
+            #region 解析xml
+
+            XmlDocument xmlDoc = new XmlDocument();
+            XmlReaderSettings settings = new XmlReaderSettings();
+            settings.IgnoreComments = true;//忽略注释
+            XmlReader reader = XmlReader.Create(path, settings);
+            xmlDoc.Load(reader);
+
+            
+            XmlNode responseNode = xmlDoc.SelectSingleNode("Response");
+            var xmlNodeVals =  new List<PropertyInformation>();
+            GetXmlNodeVal(responseNode, xmlNodeVals);
+            //var json = Newtonsoft.Json.JsonConvert.SerializeXmlNode(responseNode);
+            //var response = System.Text.Json.JsonSerializer.Deserialize<ResponseModel>(json);
+            //var response = XmlDeserialize<ResponseModel>(xmlDoc.InnerXml);
+            //ResponseModel response = XmlUtil.Deserialize(typeof(ResponseModel), xmlDoc.InnerXml) as ResponseModel;
+            foreach (var item in xmlNodeVals)
+            {
+                Console.WriteLine($"{item.Name}{new string(' ', 1 * (16 - item.Name.Length))}{item.Value}");
+            }
+            ResponseModel response = new ResponseModel
             {
                 Response = new ResponseTest
                 {
@@ -333,43 +360,41 @@ namespace ConsoleApp
                     {
                         Return = new ReturnTest
                         {
-                            Source = "1",
-                            RecordFlow = "1432089583748759900012",
-                            TransNo = "HTIP.CM.PAT.0001",
-                            RetCode = 1,
-                            RetType = "1",
-                            RetCont = "成功时为空，失败是说明失败原因"
+                            Source = GetVal(xmlNodeVals, "Source"),
+                            RecordFlow = GetVal(xmlNodeVals, "RecordFlow"),
+                            TransNo = GetVal(xmlNodeVals, "TransNo"),
+                            RetCode = xmlNodeVals.Where(d => d.Name == "RetCode" && d.Value != null)
+                                                 ?.Select(d => Convert.ToInt32(d.Value))
+                                                 ?.FirstOrDefault() 
+                                                 ?? 0,
+                            RetType = GetVal(xmlNodeVals, "RetType"),
+                            RetCont = GetVal(xmlNodeVals, "RetCont")
                         },
-                        Test = "1"
+                        Test = xmlNodeVals.Where(d => d.Name == "Test" && d.Value != null)
+                                          ?.Select(d=> Convert.ToDateTime(d.Value))
+                                          ?.FirstOrDefault() 
+                                          ?? DateTime.MinValue
                     },
                     Body = new BodyTest
                     {
                         PatientInfo = new PatientInfoModel
                         {
-                            Name = "1"
+                            Name = GetVal(xmlNodeVals, "Name")
                         }
                     },
-                    Msg = "1"
+                    Msg = GetVal(xmlNodeVals, "Msg")
                 }
             };
-
-            Type type = response.GetType();
-
-            if(!IsBaseType(type))
+            var nameValueList = ObjectPropertyInformation(response);
+            if(nameValueList.Count > 0)
             {
-                var propList = type.GetProperties().ToList();
-                foreach (var prop in propList)
+                foreach (var item in nameValueList)
                 {
-                    //创建根结点
-                    XmlNode node = xmlDoc.CreateElement(prop.Name);
-
-                    GetChildNodes(prop, xmlDoc, node);
-
-                    xmlDoc.AppendChild(node);
+                    Console.WriteLine($"{item.Name}{new string(' ', 1 * (16 - item.Name.Length))}{item.Value}");
                 }
             }
-            Console.WriteLine(xmlDoc.ToString());
             Console.ReadKey();
+            #endregion
 
             #region history
             //string[] jsonArray = new string[]
@@ -500,9 +525,117 @@ namespace ConsoleApp
             #endregion
         }
 
-        static void GetChildNodes(PropertyInfo prop, XmlDocument xmlDoc, XmlNode node)
+        private static string GetVal(List<PropertyInformation> list,string prop)
         {
-            if(prop == null || xmlDoc == null || node == null)
+            if(list == null || string.IsNullOrEmpty(prop))
+            {
+                return string.Empty;
+            }
+            string result = list.FirstOrDefault(d => d.Name == prop)?.Value?.ToString() ?? string.Empty;
+            return result;
+        }
+        private static void GetXmlNodeVal(XmlNode node, List<PropertyInformation> nameValueList)
+        {
+            if(node == null || nameValueList == null)
+            {
+                return;
+            }
+            XmlNodeList childNodeList = node.ChildNodes;
+            if(childNodeList.Count == 0)
+            {
+                nameValueList.Add(new PropertyInformation
+                {
+                    Name = node.NodeType == XmlNodeType.Text ? node.ParentNode.Name : node.Name,
+                    Value = node.InnerText
+                });
+                return;
+            }
+            foreach (XmlNode childNode in childNodeList)
+            {
+                GetXmlNodeVal(childNode, nameValueList);
+            }
+        }
+        //private static T XmlDeserialize<T>(string xml) where T : class
+        //{
+        //    using MemoryStream stream = new MemoryStream(Encoding.UTF8.GetBytes(xml));
+        //    using XmlReader reader = XmlReader.Create(stream);
+        //    T result = (T)new XmlSerializer(typeof(T)).Deserialize(reader);
+        //    return result;
+        //}
+        static void GerenateXml()
+        {
+            XmlDocument xmlDoc = new XmlDocument();
+            //创建类型声明的节点
+            XmlNode noticeNode = xmlDoc.CreateXmlDeclaration("1.0", "utf-8", string.Empty);
+            xmlDoc.AppendChild(noticeNode);
+            ////创建根结点
+            //XmlNode root = xmlDoc.CreateElement("root");
+            //xmlDoc.AppendChild(root);
+
+            var response = new ResponseModel
+            {
+                Response = new ResponseTest
+                {
+                    Head = new HeadTest
+                    {
+                        Return = new ReturnTest
+                        {
+                            Source = "11",
+                            RecordFlow = "1432089583748759900012",
+                            TransNo = "HTIP.CM.PAT.0001",
+                            RetCode = 5,
+                            RetType = "11",
+                            RetCont = "成功时为空，失败是说明失败原因"
+                        },
+                        Test = new DateTime(2022, 12, 30)
+                    },
+                    Body = new BodyTest
+                    {
+                        PatientInfo = new PatientInfoModel
+                        {
+                            Name = "22"
+                        }
+                    },
+                    Msg = null
+                }
+            };
+
+            //string xml = XmlUtil.Serializer(typeof(ResponseModel), response);
+            //Console.Write(xml);
+
+            List<PropertyInformation> nameValueList = ObjectPropertyInformation(response);
+
+            Type type = response.GetType();
+
+            if (!IsBaseType(type))
+            {
+                var propList = type.GetProperties().ToList();
+                foreach (var prop in propList)
+                {
+                    //创建根结点
+                    XmlElement node = xmlDoc.CreateElement(prop.Name);
+                    //node.SetAttribute("xmlns", "xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"");
+
+                    GetChildNodes(prop, xmlDoc, node, nameValueList);
+
+                    xmlDoc.AppendChild(node);
+                }
+            }
+            //xmlDoc.LoadXml(xml);
+
+            xmlDoc.Save(path);
+        }
+        static bool IsBaseType(Type type)
+        {
+            //List<Type> list = new List<Type> { typeof(DateTime?), typeof(string), typeof(int) };
+            //return list.Contains(type);
+            bool flag = type.IsPrimitive || type.IsValueType || type == typeof(string);
+            return flag;
+        }
+
+        static void GetChildNodes(PropertyInfo prop, XmlDocument xmlDoc, XmlNode node, List<PropertyInformation> nameValueList)
+        {
+            if(prop == null || xmlDoc == null || node == null || nameValueList == null || nameValueList.Count == 0)
             {
                 return;
             }
@@ -515,19 +648,69 @@ namespace ConsoleApp
                 {
                     //创建父结点
                     XmlNode parentNode = xmlDoc.CreateElement(childProp.Name);
-                    GetChildNodes(childProp, xmlDoc, parentNode);
+                    GetChildNodes(childProp, xmlDoc, parentNode, nameValueList);
                     node.AppendChild(parentNode);
                 }
                 else
                 {
                     //叶子结点
                     XmlNode childNode = xmlDoc.CreateNode(XmlNodeType.Element, childProp.Name, string.Empty);
-                    childNode.InnerText = "1";
+                    childNode.InnerText = nameValueList.FirstOrDefault(d=>d.Name == childProp.Name)?.Value?.ToString() ?? string.Empty;
                     node.AppendChild(childNode);
                 }
             }
         }
+        /// <summary>
+        /// 循环/遍历对象以获取具有复杂属性类型的属性值
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        public static List<PropertyInformation> ObjectPropertyInformation(object obj)
+        {
+            var propertyInfomations = new List<PropertyInformation>();
+            if(obj is null)
+            {
+                return propertyInfomations;
+            }
 
+            foreach (var property in obj.GetType().GetProperties())
+            {
+                Type type = property.PropertyType;
+                //for value types 值类型
+                if (type.IsPrimitive || type.IsValueType || type == typeof(string))
+                {
+                    propertyInfomations.Add(new PropertyInformation
+                    {
+                        Name = property.Name,
+                        Value = property.GetValue(obj)
+                    });
+                }
+                //for complex types 复杂类型
+                else if(type.IsClass && !typeof(IEnumerable).IsAssignableFrom(type))
+                {
+                    propertyInfomations.AddRange(ObjectPropertyInformation(property.GetValue(obj)));
+                }
+                //for Enumberables 集合
+                else
+                {
+                    var enumerablePropObj = property.GetValue(obj) as IEnumerable;
+
+                    if (enumerablePropObj == null) continue;
+
+                    var objList = enumerablePropObj.GetEnumerator();
+
+                    while(objList.MoveNext())
+                    {
+                        if(objList.Current != null)
+                        {
+                            propertyInfomations.AddRange(ObjectPropertyInformation(objList.Current));
+                        }
+                    }
+                }
+            }
+
+            return propertyInfomations;
+        }
         private static Person person = new Person
         {
             Name = "Abe Lincoln",

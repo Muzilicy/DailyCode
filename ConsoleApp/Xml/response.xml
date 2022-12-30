@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Response>
+	<Head>
+		<Return>
+			<Source>1</Source>
+			<RecordFlow>1432089583748759900012</RecordFlow>
+			<TransNo>HTIP.CM.PAT.0001</TransNo>
+			<RetCode>5</RetCode>
+			<RetType>1</RetType>
+			<RetCont>成功时为空，失败是说明失败原因</RetCont>
+		</Return>
+		<Test>2022/12/30 0:00:00</Test>
+	</Head>
+	<Body>
+		<PatientInfo>
+			<Name>1</Name>
+		</PatientInfo>
+	</Body>
+	<Msg></Msg>
+</Response>
