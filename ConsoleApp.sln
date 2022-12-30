@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30011.22
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33110.190
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp", "ConsoleApp\ConsoleApp.csproj", "{F2A21301-1E08-41B8-BD45-7BC39234F370}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConsoleApp", "ConsoleApp\ConsoleApp.csproj", "{F2A21301-1E08-41B8-BD45-7BC39234F370}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SendCloud", "SendCloud\SendCloud.csproj", "{9E9E82CF-5F61-475E-A33F-CFCE66ED921D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{F2A21301-1E08-41B8-BD45-7BC39234F370}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F2A21301-1E08-41B8-BD45-7BC39234F370}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F2A21301-1E08-41B8-BD45-7BC39234F370}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9E9E82CF-5F61-475E-A33F-CFCE66ED921D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9E9E82CF-5F61-475E-A33F-CFCE66ED921D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9E9E82CF-5F61-475E-A33F-CFCE66ED921D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9E9E82CF-5F61-475E-A33F-CFCE66ED921D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
