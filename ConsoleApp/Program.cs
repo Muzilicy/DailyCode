@@ -1,28 +1,50 @@
-﻿using ConsoleApp.Helper;
-using ConsoleApp.Models;
-using RestSharp.Serializers.Xml;
+﻿using ConsoleApp.Models;
+//using NPOI.SS.Formula.Functions;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
-using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using System.Web;
 using System.Xml;
-using System.Xml.Linq;
-using System.Xml.Serialization;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
 namespace ConsoleApp
 {
+    public class GetDiffDateModel
+    {
+        public int Year { get; set; }
+        public int Month { get; set; }
+        public int Day { get; set; }
+    }
+    /// <summary>
+    /// 关于返回值形式的枚举
+    /// </summary>
+    public enum diffResultFormat
+    {
+        /// <summary>
+        /// 年数和月数
+        /// </summary>
+        yymm,
+        /// <summary>
+        /// 年数
+        /// </summary>
+        yy,
+        /// <summary>
+        /// 月数
+        /// </summary>
+        mm,
+        /// <summary>
+        /// 天数
+        /// </summary>
+        dd,
+    }
     #region class
     public class PropertyInformation
     {
@@ -33,6 +55,7 @@ namespace ConsoleApp
     public class ResponseModel
     {
         public ResponseTest Response { get; set; }
+        //public PersonnelRegisterDto PersonnelRegister { get; set; }
     }
 
     public class ResponseTest
@@ -286,10 +309,147 @@ namespace ConsoleApp
             }
             return qianZhui + (number + step).ToString().PadLeft(count, '0');
         }
+
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="MinDate"></param>
+        /// <param name="MaxDate"></param>
+        /// <returns></returns>
+        private static GetDiffDateModel GetDiffDate(DateTime MinDate, DateTime MaxDate)
+        {
+            GetDiffDateModel result = new GetDiffDateModel();
+
+            //只比较年月日
+            MinDate = new DateTime(MinDate.Year, MinDate.Month, MinDate.Day);
+            MaxDate = new DateTime(MaxDate.Year, MaxDate.Month, MaxDate.Day);
+
+            if (MinDate >= MaxDate)
+            {
+                return result;
+            }
+
+            #region 年
+            #region 案例
+            /*
+            #2022.01.01  2022.12.29 2022.12.31 0
+            #2022.01.01  2022.12.30 2022.12.31 0
+            #2022.01.01  2022.12.31 2022.12.31 1
+            #2022.01.01  2023.12.29 2023.12.31 1
+            #2022.01.01  2023.12.30 2023.12.31 1
+            #2022.01.01  2023.12.31 2023.12.31 2
+            #2022.01.02  2022.12.29 2023.01.01 0
+            #2022.01.02  2022.12.30 2023.01.01 0
+            #2022.01.02  2022.12.31 2023.01.01 0
+            #2022.01.03  2023.01.01 2023.01.02 0
+            #2022.01.03  2023.01.02 2023.01.02 1
+            #2022.01.03  2023.12.31 2023.01.02 1
+            #2022.01.03  2024.01.01 2024.01.02 2
+             */
+            #endregion
+            var _year = MaxDate.Year - MinDate.Year;
+            if (MinDate.Month == 1 && MinDate.Day == 1)
+            {
+                //如果是当前最后一天，年份+1
+                if (MaxDate == new DateTime(MaxDate.Year, 12, 31))
+                {
+                    _year++;
+                }
+            }
+            else
+            {
+                if (_year == 0)//同一年
+                {
+                    _year = 0;
+                }
+                else
+                {
+                    if (MinDate.AddYears(_year).AddDays(-1) > MaxDate)
+                    {
+                        _year--;
+                    }
+                }
+            }
+            result.Year = _year;
+            #endregion
+
+            #region 月
+            #region 案例
+            /*
+            2022年8月1号~2022年08月30号 2022年08月31号 算0月
+            2022年8月1号~2022年08月31号 2022年08月31号 算1月
+            2022年8月3号~2022年09月01号 2022年09月02号 算0月
+            2022年8月3号~2022年09月02号 2022年09月02号 算1月
+            2022年8月3号~2022年09月30号 2022年09月02号 算1月
+            2022年8月3号~2022年09月31号 2022年09月02号 算1月
+            2022年8月3号~2022年10月01号 2022年10月02号 算1月
+            2022年8月3号~2022年10月02号 2022年10月02号 算2月
+            */
+            #endregion
+            /*
+             逻辑：先把年的部分去掉，然后比较剩下的月份
+             */
+            var currMinDate = MinDate.AddYears(result.Year);
+            var _month = MaxDate.Month - currMinDate.Month;
+            if (currMinDate.Day == 1)
+            {
+                //如果是当月最后一天，月份+1
+                if (MaxDate.Day == new DateTime(MaxDate.Year, MaxDate.Month, 1).AddMonths(1).AddDays(-1).Day)
+                {
+                    _month++;
+                }
+            }
+            else
+            {
+                if (_month == 0)//同一月
+                {
+                    _month = 0;
+                }
+                else
+                {
+                    if (currMinDate.AddMonths(_month).AddDays(-1) > MaxDate)
+                    {
+                        _month--;
+                    }
+                }
+            }
+            result.Month = _month + (result.Year * 12);
+
+            #endregion
+
+            #region 日
+            result.Day = (MaxDate.Date - MinDate.Date).Days + 1;
+            #endregion
+
+            return result;
+        }
+
+
+
+
         static string path = "./Xml/response.xml";
 
         static void Main(string[] args)
         {
+            #region 测试
+
+
+            var ziJiBMList = new List<string> { "1", "2", "ZHIGONGXXLS" };
+
+            //支持混选的子集
+            var hunXuanZJList = new List<string>
+            {
+                "ZHIGONGXXLS","JIAOYUJL","GONGZUOJL","ZHICHENGBD",
+                "RENSHIHT","ZHIWUBD","","DANGNEIZWBD","GANGWEIDJBD"
+            };
+
+            bool hunXuanFlag = ziJiBMList.Any(d => !hunXuanZJList.Contains(d));
+
+            Console.ReadKey();
+            #endregion
+
             #region linq
             //var min = from file in System.IO.Directory.GetFiles(@"D:\daily\inside\WM3Core\Doc\WM3.Doc.Rule")
             //          where File.Exists(file)
@@ -326,75 +486,95 @@ namespace ConsoleApp
             //} 
             #endregion
 
+            #region MyRegion
+
+
+            //DateTime start = new DateTime(2022, 5, 1);
+            //DateTime end = new DateTime(2023, 4, 29);
+
+            //var result = GetDiffDate(start, end);
+
+            //int zhengShuBF = (int)(result.Day / 365);
+            //int zhengShu = (int)(result.Day % 365);
+            //Console.WriteLine($"{start.Year}年{start.Month}月{start.Day}日到{end.Year}年{end.Month}月{end.Day}日相差");
+            //Console.WriteLine($"{result.Day}天");
+            //var dValue = end.Subtract(start);
+
+            //Console.WriteLine($"{dValue.TotalDays}天{dValue.TotalHours}时{dValue.TotalMinutes}分{dValue.TotalSeconds}秒{dValue.TotalMilliseconds}毫秒");
+
+
+            #endregion
+
             #region 生成xml
 
-            GerenateXml();
+            //GerenateXml();
 
             #endregion
 
             #region 解析xml
 
-            XmlDocument xmlDoc = new XmlDocument();
-            XmlReaderSettings settings = new XmlReaderSettings();
-            settings.IgnoreComments = true;//忽略注释
-            XmlReader reader = XmlReader.Create(path, settings);
-            xmlDoc.Load(reader);
+            //XmlDocument xmlDoc = new XmlDocument();
+            //XmlReaderSettings settings = new XmlReaderSettings();
+            //settings.IgnoreComments = true;//忽略注释
+            //XmlReader reader = XmlReader.Create(path, settings);
+            //xmlDoc.Load(reader);
 
-            
-            XmlNode responseNode = xmlDoc.SelectSingleNode("Response");
-            var xmlNodeVals =  new List<PropertyInformation>();
-            GetXmlNodeVal(responseNode, xmlNodeVals);
-            //var json = Newtonsoft.Json.JsonConvert.SerializeXmlNode(responseNode);
-            //var response = System.Text.Json.JsonSerializer.Deserialize<ResponseModel>(json);
-            //var response = XmlDeserialize<ResponseModel>(xmlDoc.InnerXml);
-            //ResponseModel response = XmlUtil.Deserialize(typeof(ResponseModel), xmlDoc.InnerXml) as ResponseModel;
-            foreach (var item in xmlNodeVals)
-            {
-                Console.WriteLine($"{item.Name}{new string(' ', 1 * (16 - item.Name.Length))}{item.Value}");
-            }
-            ResponseModel response = new ResponseModel
-            {
-                Response = new ResponseTest
-                {
-                    Head = new HeadTest
-                    {
-                        Return = new ReturnTest
-                        {
-                            Source = GetVal(xmlNodeVals, "Source"),
-                            RecordFlow = GetVal(xmlNodeVals, "RecordFlow"),
-                            TransNo = GetVal(xmlNodeVals, "TransNo"),
-                            RetCode = xmlNodeVals.Where(d => d.Name == "RetCode" && d.Value != null)
-                                                 ?.Select(d => Convert.ToInt32(d.Value))
-                                                 ?.FirstOrDefault() 
-                                                 ?? 0,
-                            RetType = GetVal(xmlNodeVals, "RetType"),
-                            RetCont = GetVal(xmlNodeVals, "RetCont")
-                        },
-                        Test = xmlNodeVals.Where(d => d.Name == "Test" && d.Value != null)
-                                          ?.Select(d=> Convert.ToDateTime(d.Value))
-                                          ?.FirstOrDefault() 
-                                          ?? DateTime.MinValue
-                    },
-                    Body = new BodyTest
-                    {
-                        PatientInfo = new PatientInfoModel
-                        {
-                            Name = GetVal(xmlNodeVals, "Name")
-                        }
-                    },
-                    Msg = GetVal(xmlNodeVals, "Msg")
-                }
-            };
-            var nameValueList = ObjectPropertyInformation(response);
-            if(nameValueList.Count > 0)
-            {
-                foreach (var item in nameValueList)
-                {
-                    Console.WriteLine($"{item.Name}{new string(' ', 1 * (16 - item.Name.Length))}{item.Value}");
-                }
-            }
-            Console.ReadKey();
+
+            //XmlNode responseNode = xmlDoc.SelectSingleNode("Response");
+            //var xmlNodeVals =  new List<PropertyInformation>();
+            //GetXmlNodeVal(responseNode, xmlNodeVals);
+
+            //foreach (var item in xmlNodeVals)
+            //{
+            //    Console.WriteLine($"{item.Name}{new string(' ', 1 * (16 - item.Name.Length))}{item.Value}");
+            //}
+            //ResponseModel response = new ResponseModel
+            //{
+            //    Response = new ResponseTest
+            //    {
+            //        Head = new HeadTest
+            //        {
+            //            Return = new ReturnTest
+            //            {
+            //                Source = GetVal(xmlNodeVals, "Source"),
+            //                RecordFlow = GetVal(xmlNodeVals, "RecordFlow"),
+            //                TransNo = GetVal(xmlNodeVals, "TransNo"),
+            //                RetCode = xmlNodeVals.Where(d => d.Name == "RetCode" && d.Value != null)
+            //                                     ?.Select(d => Convert.ToInt32(d.Value))
+            //                                     ?.FirstOrDefault()
+            //                                     ?? 0,
+            //                RetType = GetVal(xmlNodeVals, "RetType"),
+            //                RetCont = GetVal(xmlNodeVals, "RetCont")
+            //            },
+            //            Test = xmlNodeVals.Where(d => d.Name == "Test" && d.Value != null)
+            //                              ?.Select(d => Convert.ToDateTime(d.Value))
+            //                              ?.FirstOrDefault()
+            //                              ?? DateTime.MinValue
+            //        },
+            //        Body = new BodyTest
+            //        {
+            //            PatientInfo = new PatientInfoModel
+            //            {
+            //                Name = GetVal(xmlNodeVals, "Name")
+            //            }
+            //        },
+            //        Msg = GetVal(xmlNodeVals, "Msg")
+            //    }
+            //};
+            //var nameValueList = ObjectPropertyInformation(response);
+            //if (nameValueList.Count > 0)
+            //{
+            //    foreach (var item in nameValueList)
+            //    {
+            //        Console.WriteLine($"{item.Name}{new string(' ', 1 * (16 - item.Name.Length))}{item.Value}");
+            //    }
+            //}
+
             #endregion
+
+            string tabs = string.Join(',', "11,".Replace("11","").Split(',', StringSplitOptions.RemoveEmptyEntries));
+
+            Console.ReadKey();
 
             #region history
             //string[] jsonArray = new string[]
@@ -598,6 +778,9 @@ namespace ConsoleApp
                     },
                     Msg = null
                 }
+
+
+                //PersonnelRegister = new PersonnelRegisterDto() 
             };
 
             //string xml = XmlUtil.Serializer(typeof(ResponseModel), response);
